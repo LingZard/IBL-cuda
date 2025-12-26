@@ -1,0 +1,24 @@
+CMAKE_MINIMUM_REQUIRED(VERSION 3.18)
+
+project(IBL-CUDA LANGUAGES CXX CUDA)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+set(CMAKE_CUDA_STANDARD 14)
+set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+
+cmake_policy(SET CMP0104 NEW)
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+add_executable(hello_world
+  src/app/hello_world.cu
+)
+
+set(IBL_CUDA_ARCH "89" CACHE STRING "CUDA SM architecture (e.g., 86, 89, 90)")
+set_property(TARGET hello_world PROPERTY CUDA_ARCHITECTURES ${IBL_CUDA_ARCH})
+
+target_include_directories(hello_world PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/3rd
+)
