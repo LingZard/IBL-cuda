@@ -54,7 +54,7 @@ void DiffuseIrradiance::process(const core::Cubemap &inputCubemap,
   // 1. Prepare TextureCube from input cubemap
   std::vector<float> h_inputData(inputCubemap.faceSize * inputCubemap.faceSize *
                                  4 * 6);
-  inputCubemap.data.download(h_inputData.data(), h_inputData.size());
+  inputCubemap.baseLevelData().download(h_inputData.data(), h_inputData.size());
 
   core::TextureCube envTex;
   envTex.create(inputCubemap.faceSize, inputCubemap.channels,
@@ -66,7 +66,7 @@ void DiffuseIrradiance::process(const core::Cubemap &inputCubemap,
             (faceSize_ + block.y - 1) / block.y, 6);
 
   diffuseIrradianceKernel<<<grid, block>>>(
-      envTex.get(), outIrradianceMap.data.data(), faceSize_);
+      envTex.get(), outIrradianceMap.baseLevelData().data(), faceSize_);
 
   CHECK_LAST_CUDA_ERROR();
   CHECK_CUDA(cudaDeviceSynchronize());

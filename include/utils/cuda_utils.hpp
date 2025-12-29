@@ -65,6 +65,7 @@ __device__ __inline__ void buildOrthonormalBasis(const float3 n, float3 &b1,
   b2 = make_float3(b, sign + n.y * n.y * a, -n.y);
 }
 
+// TODO: low discrepancy sampling
 __device__ __inline__ float3 sampleHemisphereCosine(const float3 n,
                                                     curandState *state) {
   float r1 = curand_uniform(state);
@@ -81,4 +82,20 @@ __device__ __inline__ float3 sampleHemisphereCosine(const float3 n,
   return t * localRay.x + b * localRay.y + n * localRay.z;
 }
 
+__device__ __inline__ float3 sampleGGX(const float3 n, float roughness,
+                                       curandState *state) {
+  // return normalized half vector H
+  float a = roughness * roughness;
+  float r1 = curand_uniform(state);
+  float r2 = curand_uniform(state);
+
+  float phi = 2.0f * 3.14159265f * r1;
+  float cosTheta = sqrtf((1.0f - r2) / ((a * a - 1.0f) * r2 + 1.0f));
+  float sinTheta = sqrtf(1.0f - cosTheta * cosTheta);
+  float3 localDir =
+      make_float3(cosf(phi) * sinTheta, sinf(phi) * sinTheta, cosTheta);
+  float3 t, b;
+  buildOrthonormalBasis(n, t, b);
+  return t * localDir.x + b * localDir.y + n * localDir.z;
+}
 } // namespace utils

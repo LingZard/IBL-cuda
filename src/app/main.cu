@@ -1,6 +1,8 @@
 #include "core/cubemap.hpp"
+#include "ibl/brdf_lut.hpp"
 #include "ibl/diffuse_irradiance.hpp"
 #include "ibl/equirect_to_cube.hpp"
+#include "ibl/specular_prefilter.hpp"
 #include "io/image.hpp"
 #include "utils/cuda_utils.hpp"
 #include <iostream>
@@ -14,6 +16,9 @@ void printUsage() {
             << std::endl;
   std::cout << "  diffuse_irradiance <input.hdr> [faceSize] [output_prefix]"
             << std::endl;
+  std::cout << "  specular_prefilter <input.hdr> [faceSize] [output_prefix]"
+            << std::endl;
+  std::cout << "  brdf_lut [size] [output_name.png]" << std::endl;
 }
 
 void handleEquirectToCube(int argc, char **argv) {
@@ -76,6 +81,58 @@ void handleDiffuseIrradiance(int argc, char **argv) {
   std::cout << "Done." << std::endl;
 }
 
+void handleSpecularPrefilter(int argc, char **argv) {
+  if (argc < 3) {
+    std::cerr << "Error: Missing input HDR path for specular_prefilter"
+              << std::endl;
+    return;
+  }
+  std::string inputPath = argv[2];
+  int faceSize = (argc > 3) ? std::stoi(argv[3]) : 128;
+  std::string outputPrefix = (argc > 4) ? argv[4] : "prefilter";
+
+  std::cout << "--- Specular Prefilter Generation ---" << std::endl;
+  std::cout << "Loading: " << inputPath << "..." << std::endl;
+  auto hdrImg = io::load_hdr(inputPath);
+
+  std::cout << "[1/2] Converting to intermediate environment Cubemap..."
+            << std::endl;
+  int envSize = 512;
+  core::Cubemap envCubemap(envSize, 4);
+  ibl::EquirectToCube converter(envSize);
+  converter.process(hdrImg, envCubemap);
+
+  std::cout << "[2/2] Filtering Mipmaps..." << std::endl;
+  int mipLevels = 5;
+  core::Cubemap prefilterMap(faceSize, 4, mipLevels);
+  ibl::SpecularPrefilter prefilterProcessor(faceSize, mipLevels);
+  prefilterProcessor.process(envCubemap, prefilterMap);
+
+  std::cout << "Saving results (all levels)..." << std::endl;
+  for (int i = 0; i < mipLevels; ++i) {
+    prefilterMap.saveFaces(outputPrefix, i);
+    prefilterMap.saveCross(
+        outputPrefix + "_L" + std::to_string(i) + "_cross.png", i);
+  }
+  std::cout << "Done." << std::endl;
+}
+
+void handleBRDFLUT(int argc, char **argv) {
+  int size = (argc > 2) ? std::stoi(argv[2]) : 512;
+  std::string outputName = (argc > 3) ? argv[3] : "brdf_lut.png";
+
+  std::cout << "--- BRDF LUT Generation ---" << std::endl;
+  std::cout << "Generating LUT (" << size << "x" << size << ")..." << std::endl;
+
+  io::Image lutImg;
+  ibl::BRDFLUT brdfProcessor(size);
+  brdfProcessor.process(lutImg);
+
+  std::cout << "Saving results to " << outputName << std::endl;
+  io::save_png(outputName, lutImg);
+  std::cout << "Done." << std::endl;
+}
+
 int main(int argc, char **argv) {
   if (argc < 2) {
     printUsage();
@@ -96,6 +153,10 @@ int main(int argc, char **argv) {
       handleEquirectToCube(argc, argv);
     } else if (command == "diffuse_irradiance") {
       handleDiffuseIrradiance(argc, argv);
+    } else if (command == "specular_prefilter") {
+      handleSpecularPrefilter(argc, argv);
+    } else if (command == "brdf_lut") {
+      handleBRDFLUT(argc, argv);
     } else {
       std::cerr << "Unknown command: " << command << std::endl;
       printUsage();

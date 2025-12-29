@@ -27,6 +27,8 @@ add_library(ibl_core STATIC
     src/io/image_io.cpp
     src/ibl/equirect_to_cube.cu
     src/ibl/diffuse_irradiance.cu
+    src/ibl/specular_prefilter.cu
+    src/ibl/brdf_lut.cu
 )
 
 target_include_directories(ibl_core PUBLIC 

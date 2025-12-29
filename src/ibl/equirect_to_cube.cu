@@ -63,14 +63,14 @@ void EquirectToCube::process(const io::Image &hdrImage,
             (faceSize_ + block.y - 1) / block.y, 6);
 
   if (outCubemap.channels == 4) {
-    equirectToCubeKernel<4>
-        <<<grid, block>>>(hdrTex.get(), outCubemap.data.data(), faceSize_);
+    equirectToCubeKernel<4><<<grid, block>>>(
+        hdrTex.get(), outCubemap.baseLevelData().data(), faceSize_);
   } else if (outCubemap.channels == 1) {
-    equirectToCubeKernel<1>
-        <<<grid, block>>>(hdrTex.get(), outCubemap.data.data(), faceSize_);
+    equirectToCubeKernel<1><<<grid, block>>>(
+        hdrTex.get(), outCubemap.baseLevelData().data(), faceSize_);
   } else if (outCubemap.channels == 2) {
-    equirectToCubeKernel<2>
-        <<<grid, block>>>(hdrTex.get(), outCubemap.data.data(), faceSize_);
+    equirectToCubeKernel<2><<<grid, block>>>(
+        hdrTex.get(), outCubemap.baseLevelData().data(), faceSize_);
   } else {
     std::cerr << "Unsupported channel count for EquirectToCube" << std::endl;
   }
