@@ -25,6 +25,8 @@ set(IBL_INCLUDES
 # Core Library
 add_library(ibl_core STATIC
     src/io/image_io.cpp
+    src/ibl/equirect_to_cube.cu
+    src/ibl/diffuse_irradiance.cu
 )
 
 target_include_directories(ibl_core PUBLIC 
