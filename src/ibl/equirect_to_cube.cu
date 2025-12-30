@@ -1,5 +1,7 @@
 #include "ibl/equirect_to_cube.hpp"
+
 #include "utils/cuda_utils.hpp"
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <iostream>
@@ -19,7 +21,9 @@ __global__ void equirectToCubeKernel(cudaTextureObject_t equirectTex,
   float3 dir = utils::cubeCoordToWorldDir(x, y, face, faceSize);
 
   const float PI = 3.1415926535f;
-  float theta = atan2f(dir.z, dir.x);
+  // Standard equirectangular mapping (Outside-in):
+  // longitude: 0 at +Z axis, aligned with u=0.5.
+  float theta = atan2f(dir.x, dir.z);
   float phi = acosf(dir.y);
 
   float sample_u = (theta / (2.0f * PI)) + 0.5f;

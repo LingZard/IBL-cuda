@@ -1,6 +1,8 @@
-#include "core/texture.hpp"
 #include "ibl/specular_prefilter.hpp"
+
+#include "core/texture.hpp"
 #include "utils/cuda_utils.hpp"
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
@@ -37,7 +39,7 @@ __global__ void specularPrefilterKernel(cudaTextureObject_t envMetadata,
     float NoL = dot(N, L);
     if (NoL > 0.0f) {
       float4 sampleColor = texCubemap<float4>(envMetadata, L.x, L.y, L.z);
-      prefilteredColor += NoL * sampleColor;
+      prefilteredColor += NoL * make_float3(sampleColor);
       totalWeight += NoL;
     }
   }

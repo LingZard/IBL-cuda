@@ -1,6 +1,7 @@
 #pragma once
 
 #include "utils/cuda_utils.hpp"
+
 #include <cuda_runtime.h>
 #include <iostream>
 #include <vector>

@@ -1,10 +1,13 @@
 #include "ibl/brdf_lut.hpp"
+
 #include "utils/cuda_utils.hpp"
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
 namespace ibl {
 
+// ... (geometrySmithGGX remains the same)
 __device__ __inline__ float geometrySmithGGX(float NoV, float NoL,
                                              float roughness) {
   // IBL: k = (alpha^2) / 2

@@ -2,6 +2,7 @@
 
 #include "core/cuda_buffer.hpp"
 #include "io/image.hpp"
+
 #include <string>
 #include <vector>
 
@@ -45,7 +46,8 @@ struct Cubemap {
   CudaBuffer<float> &baseLevelData() { return levels[0].data; }
   const CudaBuffer<float> &baseLevelData() const { return levels[0].data; }
 
-  void saveFaces(const std::string &prefix, int level = 0) const {
+  void saveFaces(const std::string &directory, const std::string &prefix,
+                 const std::string &ext, int level = 0) const {
     if (level >= numLevels)
       return;
     int size = levels[level].size;
@@ -60,13 +62,18 @@ struct Cubemap {
       faceImg.channels = channels;
       faceImg.data.assign(h_data.begin() + f * size * size * channels,
                           h_data.begin() + (f + 1) * size * size * channels);
-      io::save_png(prefix + "_L" + std::to_string(level) + "_" + faceNames[f] +
-                       ".png",
-                   faceImg);
+
+      std::string path = directory + "/" + prefix + "_L" +
+                         std::to_string(level) + "_" + faceNames[f] + ext;
+      if (ext == ".png")
+        io::save_png(path, faceImg);
+      else if (ext == ".hdr")
+        io::save_hdr(path, faceImg);
     }
   }
 
-  void saveCross(const std::string &filename, int level = 0) const {
+  void saveCross(const std::string &directory, const std::string &filename,
+                 const std::string &ext, int level = 0) const {
     if (level >= numLevels)
       return;
     int size = levels[level].size;
@@ -103,7 +110,11 @@ struct Cubemap {
     copyFace(5, size * 3, size); // -Z
     copyFace(3, size, size * 2); // -Y
 
-    io::save_png(filename, crossImg);
+    std::string path = directory + "/" + filename + ext;
+    if (ext == ".png")
+      io::save_png(path, crossImg);
+    else if (ext == ".hdr")
+      io::save_hdr(path, crossImg);
   }
 };
 

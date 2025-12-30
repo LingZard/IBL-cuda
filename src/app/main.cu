@@ -5,9 +5,13 @@
 #include "ibl/specular_prefilter.hpp"
 #include "io/image.hpp"
 #include "utils/cuda_utils.hpp"
+
+#include <filesystem>
 #include <iostream>
 #include <string>
 #include <vector>
+
+namespace fs = std::filesystem;
 
 void printUsage() {
   std::cout << "Usage: ibl_preprocess <command> <args>" << std::endl;
@@ -16,9 +20,29 @@ void printUsage() {
             << std::endl;
   std::cout << "  diffuse_irradiance <input.hdr> [faceSize] [output_prefix]"
             << std::endl;
-  std::cout << "  specular_prefilter <input.hdr> [faceSize] [output_prefix]"
+  std::cout << "  specular_prefilter <input.hdr> [faceSize] [mipLevels] "
+               "[output_prefix]"
             << std::endl;
-  std::cout << "  brdf_lut [size] [output_name.png]" << std::endl;
+  std::cout << "  brdf_lut [size] [output_name_no_ext]" << std::endl;
+}
+
+// Helper to save a cubemap level to both PNG (Gamma) and HDR
+void saveCubemapResults(const core::Cubemap &cubemap, const std::string &prefix,
+                        int level = 0) {
+  std::cout << "  Saving Level " << level << " to output/png and output/hdr..."
+            << std::endl;
+
+  fs::create_directories("output/png");
+  fs::create_directories("output/hdr");
+
+  cubemap.saveFaces("output/png", prefix, ".png", level);
+  cubemap.saveFaces("output/hdr", prefix, ".hdr", level);
+  cubemap.saveCross("output/png",
+                    prefix + "_L" + std::to_string(level) + "_cross", ".png",
+                    level);
+  cubemap.saveCross("output/hdr",
+                    prefix + "_L" + std::to_string(level) + "_cross", ".hdr",
+                    level);
 }
 
 void handleEquirectToCube(int argc, char **argv) {
@@ -40,9 +64,7 @@ void handleEquirectToCube(int argc, char **argv) {
   ibl::EquirectToCube converter(faceSize);
   converter.process(hdrImg, cubemap);
 
-  std::cout << "Saving results to " << outputPrefix << "_*.png" << std::endl;
-  cubemap.saveFaces(outputPrefix);
-  cubemap.saveCross(outputPrefix + "_cross.png");
+  saveCubemapResults(cubemap, outputPrefix, 0);
   std::cout << "Done." << std::endl;
 }
 
@@ -60,7 +82,6 @@ void handleDiffuseIrradiance(int argc, char **argv) {
   std::cout << "Loading: " << inputPath << "..." << std::endl;
   auto hdrImg = io::load_hdr(inputPath);
 
-  // 1. Convert to environment Cubemap first (high res)
   std::cout << "[1/2] Converting to intermediate environment Cubemap..."
             << std::endl;
   int envSize = 512;
@@ -68,16 +89,13 @@ void handleDiffuseIrradiance(int argc, char **argv) {
   ibl::EquirectToCube converter(envSize);
   converter.process(hdrImg, envCubemap);
 
-  // 2. Generate Irradiance Map
   std::cout << "[2/2] Convolving Irradiance Map (" << faceSize << "x"
             << faceSize << ")..." << std::endl;
   core::Cubemap irradianceMap(faceSize, 4);
   ibl::DiffuseIrradiance irradianceProcessor(faceSize);
   irradianceProcessor.process(envCubemap, irradianceMap);
 
-  std::cout << "Saving results to " << outputPrefix << "_*.png" << std::endl;
-  irradianceMap.saveFaces(outputPrefix);
-  irradianceMap.saveCross(outputPrefix + "_cross.png");
+  saveCubemapResults(irradianceMap, outputPrefix, 0);
   std::cout << "Done." << std::endl;
 }
 
@@ -89,7 +107,8 @@ void handleSpecularPrefilter(int argc, char **argv) {
   }
   std::string inputPath = argv[2];
   int faceSize = (argc > 3) ? std::stoi(argv[3]) : 128;
-  std::string outputPrefix = (argc > 4) ? argv[4] : "prefilter";
+  int mipLevels = (argc > 4) ? std::stoi(argv[4]) : 6;
+  std::string outputPrefix = (argc > 5) ? argv[5] : "prefilter";
 
   std::cout << "--- Specular Prefilter Generation ---" << std::endl;
   std::cout << "Loading: " << inputPath << "..." << std::endl;
@@ -102,24 +121,20 @@ void handleSpecularPrefilter(int argc, char **argv) {
   ibl::EquirectToCube converter(envSize);
   converter.process(hdrImg, envCubemap);
 
-  std::cout << "[2/2] Filtering Mipmaps..." << std::endl;
-  int mipLevels = 5;
+  std::cout << "[2/2] Filtering " << mipLevels << " Mipmaps..." << std::endl;
   core::Cubemap prefilterMap(faceSize, 4, mipLevels);
   ibl::SpecularPrefilter prefilterProcessor(faceSize, mipLevels);
   prefilterProcessor.process(envCubemap, prefilterMap);
 
-  std::cout << "Saving results (all levels)..." << std::endl;
   for (int i = 0; i < mipLevels; ++i) {
-    prefilterMap.saveFaces(outputPrefix, i);
-    prefilterMap.saveCross(
-        outputPrefix + "_L" + std::to_string(i) + "_cross.png", i);
+    saveCubemapResults(prefilterMap, outputPrefix, i);
   }
   std::cout << "Done." << std::endl;
 }
 
 void handleBRDFLUT(int argc, char **argv) {
   int size = (argc > 2) ? std::stoi(argv[2]) : 512;
-  std::string outputName = (argc > 3) ? argv[3] : "brdf_lut.png";
+  std::string outputPrefix = (argc > 3) ? argv[3] : "brdf_lut";
 
   std::cout << "--- BRDF LUT Generation ---" << std::endl;
   std::cout << "Generating LUT (" << size << "x" << size << ")..." << std::endl;
@@ -128,8 +143,11 @@ void handleBRDFLUT(int argc, char **argv) {
   ibl::BRDFLUT brdfProcessor(size);
   brdfProcessor.process(lutImg);
 
-  std::cout << "Saving results to " << outputName << std::endl;
-  io::save_png(outputName, lutImg);
+  std::cout << "Saving results to output/png and output/hdr..." << std::endl;
+  fs::create_directories("output/png");
+  fs::create_directories("output/hdr");
+  io::save_png("output/png/" + outputPrefix + ".png", lutImg);
+  io::save_hdr("output/hdr/" + outputPrefix + ".hdr", lutImg);
   std::cout << "Done." << std::endl;
 }
 

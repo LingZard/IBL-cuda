@@ -1,6 +1,8 @@
-#include "core/texture.hpp"
 #include "ibl/diffuse_irradiance.hpp"
+
+#include "core/texture.hpp"
 #include "utils/cuda_utils.hpp"
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 
